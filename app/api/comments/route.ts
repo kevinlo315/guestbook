@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPosts, addPost } from '@/lib/db'
+import { getPostsWithReplies, addPost, updatePost, deletePost } from '@/lib/db'
 
-// GET /api/comments - 取得所有留言
-export async function GET() {
+// GET /api/comments?page=1&limit=20 - 取得所有留言（分頁）
+export async function GET(request: NextRequest) {
   try {
-    const posts = await getPosts()
-    return NextResponse.json(posts)
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    
+    const result = await getPostsWithReplies(page, limit)
+    return NextResponse.json(result)
   } catch (error) {
     console.error('GET error:', error)
     return NextResponse.json(
@@ -16,10 +20,11 @@ export async function GET() {
 }
 
 // POST /api/comments - 新增留言
+// Body: { author, content, parentId? }
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { author, content } = body
+    const { author, content, parentId } = body
 
     // 簡單驗證
     if (!author || !content) {
@@ -38,7 +43,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const post = await addPost(author, content)
+    const post = await addPost(author, content, parentId)
     return NextResponse.json(post, { status: 201 })
   } catch (error) {
     console.error('POST error:', error)

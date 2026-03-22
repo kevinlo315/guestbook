@@ -69,11 +69,21 @@ h2 {
   border: 1px solid #2a2a3e;
 }
 
+/* 回覆樣式 */
+.post.reply {
+  background: #252538;
+  border-radius: 10px;
+  margin-top: 0.75rem;
+  margin-left: 1.5rem;
+  border-left: 3px solid #4a9eff;
+}
+
 .post-header {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .author-badge {
@@ -89,11 +99,175 @@ h2 {
   color: #666;
 }
 
+.edited-tag {
+  font-size: 0.75rem;
+  color: #666;
+  font-style: italic;
+}
+
 .post-content {
   white-space: pre-wrap;
   word-break: break-word;
+  margin-bottom: 0.75rem;
 }
 
+.post-footer {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* 按鈕樣式 */
+.post-footer button,
+.reply-form .reply-actions button,
+.edit-form .edit-actions button {
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reply {
+  background: #2a4a6e;
+  color: #4a9eff;
+}
+
+.btn-reply:hover {
+  background: #3a5a7e;
+}
+
+.btn-edit {
+  background: #3d3d3d;
+  color: #aaa;
+}
+
+.btn-edit:hover {
+  background: #4d4d4d;
+  color: #fff;
+}
+
+.btn-delete {
+  background: #4a2a2a;
+  color: #ff6b6b;
+}
+
+.btn-delete:hover {
+  background: #5a3a3a;
+}
+
+.btn-save {
+  background: #4a9eff;
+  color: #fff;
+}
+
+.btn-save:hover {
+  background: #3a8eef;
+}
+
+.btn-cancel {
+  background: #3d3d3d;
+  color: #aaa;
+}
+
+.btn-cancel:hover {
+  background: #4d4d4d;
+}
+
+/* 回覆表單 */
+.reply-form {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #1a1a28;
+  border-radius: 8px;
+}
+
+.reply-to-author {
+  font-size: 0.8rem;
+  color: #4a9eff;
+  margin-bottom: 0.5rem;
+}
+
+.reply-form textarea {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #0f0f1a;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.reply-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* 編輯表單 */
+.edit-form textarea {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #4a9eff;
+  background: #0f0f1a;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 0.5rem;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* 回覆區塊 */
+.replies-section {
+  margin-top: 0.5rem;
+  padding-left: 0.5rem;
+}
+
+/* 分頁 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #333;
+}
+
+.pagination button {
+  background: #2a4a6e;
+  color: #4a9eff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #3a5a7e;
+}
+
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+/* 發表留言區塊 */
 .compose-section {
   background: #1e1e2f;
   border-radius: 12px;
@@ -136,7 +310,7 @@ h2 {
   border-color: #4a9eff;
 }
 
-button {
+.compose-section > form > button {
   background: #4a9eff;
   color: #fff;
   border: none;
@@ -147,11 +321,11 @@ button {
   transition: background 0.2s;
 }
 
-button:hover:not(:disabled) {
+.compose-section > form > button:hover:not(:disabled) {
   background: #3a8eef;
 }
 
-button:disabled {
+.compose-section > form > button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -172,4 +346,20 @@ footer pre {
   font-size: 0.75rem;
   text-align: left;
   border: 1px solid #2a2a3e;
+}
+
+/* 響應式 */
+@media (max-width: 500px) {
+  .post.reply {
+    margin-left: 0.5rem;
+  }
+  
+  .pagination {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .post-footer {
+    flex-direction: column;
+  }
 }
