@@ -8,12 +8,14 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     
+    console.log(`GET /api/comments page=${page} limit=${limit}`)
+    
     const result = await getPostsWithReplies(page, limit)
     return NextResponse.json(result)
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch posts' },
+      { error: `Failed to fetch posts: ${error.message}` },
       { status: 500 }
     )
   }

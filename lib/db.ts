@@ -23,18 +23,31 @@ export interface PostWithReplies extends Post {
 export async function getPosts(page: number = 1, limit: number = 20): Promise<{ posts: Post[], total: number, totalPages: number }> {
   const offset = (page - 1) * limit
   
-  const countResult = await pool.query('SELECT COUNT(*) FROM posts WHERE parent_id IS NULL')
+  let countResult
+  try {
+    countResult = await pool.query('SELECT COUNT(*) FROM posts WHERE parent_id IS NULL')
+  } catch (err: any) {
+    console.error('Count query error:', err)
+    throw new Error(`Count query failed: ${err.message}`)
+  }
   const total = parseInt(countResult.rows[0].count)
   const totalPages = Math.ceil(total / limit)
 
-  const result = await pool.query(
-    `SELECT id, author, content, created_at, updated_at, is_edited, parent_id, reply_count 
-     FROM posts 
-     WHERE parent_id IS NULL 
-     ORDER BY created_at DESC 
-     LIMIT $1 OFFSET $2`,
-    [limit, offset]
-  )
+  let result
+  try {
+    result = await pool.query(
+      `SELECT id, author, content, created_at, updated_at, is_edited, parent_id, reply_count 
+       FROM posts 
+       WHERE parent_id IS NULL 
+       ORDER BY created_at DESC 
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    )
+  } catch (err: any) {
+    console.error('Select query error:', err)
+    console.error('Query was:', `SELECT id, author, content, created_at, updated_at, is_edited, parent_id, reply_count FROM posts WHERE parent_id IS NULL ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`)
+    throw new Error(`Select query failed: ${err.message}`)
+  }
   
   return { posts: result.rows, total, totalPages }
 }
@@ -51,12 +64,26 @@ export async function getPostReplies(parentId: number): Promise<Post[]> {
 }
 
 export async function getPostsWithReplies(page: number = 1, limit: number = 20): Promise<{ posts: PostWithReplies[], total: number, totalPages: number }> {
-  const { posts, total, totalPages } = await getPosts(page, limit)
+  let posts, total, totalPages
+  try {
+    const result = await getPosts(page, limit)
+    posts = result.posts
+    total = result.total
+    totalPages = result.totalPages
+  } catch (err: any) {
+    console.error('getPostsWithReplies -> getPosts failed:', err)
+    throw err
+  }
   
   const postsWithReplies = await Promise.all(
     posts.map(async (post) => {
-      const replies = await getPostReplies(post.id)
-      return { ...post, replies }
+      try {
+        const replies = await getPostReplies(post.id)
+        return { ...post, replies }
+      } catch (err: any) {
+        console.error(`getPostReplies for post ${post.id} failed:`, err)
+        return { ...post, replies: [] }
+      }
     })
   )
   
