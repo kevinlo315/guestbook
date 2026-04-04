@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPostsWithReplies, addPost, updatePost, deletePost } from '@/lib/db'
+import { getPostsWithReplies, addPost } from '@/lib/db'
 
-// GET /api/comments?page=1&limit=20 - 取得所有留言（分頁）
+// GET /api/comments?page=1&limit=20&search=關鍵字&date=2026-03-27
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
-    
-    console.log(`GET /api/comments page=${page} limit=${limit}`)
-    
-    const result = await getPostsWithReplies(page, limit)
+    const search = searchParams.get('search') || undefined
+    const date = searchParams.get('date') || undefined
+
+    const result = await getPostsWithReplies(page, limit, search, date)
     return NextResponse.json(result)
   } catch (error: any) {
     console.error('GET error:', error)
@@ -22,11 +22,11 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/comments - 新增留言
-// Body: { author, content, parentId? }
+// Body: { author, content, parentId?, imageUrl? }
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { author, content, parentId } = body
+    const { author, content, parentId, imageUrl } = body
 
     if (!author || !content) {
       return NextResponse.json(
@@ -43,9 +43,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const post = await addPost(author, content, parentId)
+    const post = await addPost(author, content, parentId, imageUrl)
     return NextResponse.json(post, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST error:', error)
     return NextResponse.json(
       { error: 'Failed to add post' },
