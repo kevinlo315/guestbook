@@ -273,6 +273,7 @@ export default function Guestbook() {
           >
             {post.author}
           </span>
+          <span className="post-id" style={{ fontSize: '0.7rem', color: 'var(--muted)', marginLeft: '0.3rem' }}>#{post.id}</span>
           <time>{formatTime(post.created_at)}</time>
           {post.is_edited && <span className="edited-tag">（已編輯）</span>}
         </header>
