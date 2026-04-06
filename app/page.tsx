@@ -233,6 +233,33 @@ export default function Guestbook() {
     }
   }
 
+  const handleCopyThread = async (post: Post) => {
+    const formatPost = (p: Post, indent: string = ''): string => {
+      const time = new Date(p.created_at).toLocaleString('zh-TW', {
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      })
+      let text = `${indent}【${p.author} #${p.id}】${time}\n${indent}${p.content}\n`
+      if (p.replies && p.replies.length > 0) {
+        p.replies.forEach(reply => {
+          text += formatPost(reply, indent + '  ')
+        })
+      }
+      return text
+    }
+
+    const header = `═══ 留言串 #${post.id} ═══\n`
+    const footer = `═══════════════════════`
+    const threadText = header + formatPost(post) + footer
+
+    try {
+      await navigator.clipboard.writeText(threadText)
+      alert('已複製到剪貼簿！')
+    } catch (err: any) {
+      alert('複製失敗')
+    }
+  }
+
   const startEdit = (post: Post) => {
     setEditingId(post.id)
     setEditContent(post.content)
@@ -356,6 +383,11 @@ export default function Guestbook() {
                   }).then(() => fetchPosts(page))
                 }}>
                   {post.is_pinned ? '取消置頂' : '置頂'}
+                </button>
+              )}
+              {!isReply && post.reply_count > 0 && (
+                <button className="btn-copy" onClick={() => handleCopyThread(post)}>
+                  📋 複製留言串
                 </button>
               )}
             </footer>
