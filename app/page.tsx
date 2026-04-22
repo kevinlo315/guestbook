@@ -565,7 +565,11 @@ export default function Guestbook() {
             type="date"
             value={dateFilter}
             onChange={e => setDateFilter(e.target.value)}
+            style={{ width: '130px' }}
           />
+          {dateFilter && (
+            <button onClick={() => setDateFilter('')} title="清除日期">✕</button>
+          )}
           <button onClick={() => fetchPosts(1, searchQuery, dateFilter)}>搜尋</button>
         </div>
       )}
