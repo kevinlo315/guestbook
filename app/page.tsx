@@ -315,7 +315,7 @@ export default function Guestbook() {
       } else if (match[4]) {
         // YouTube
         const ytUrl = match[4].startsWith('http') ? match[4] : 'https://' + match[4]
-        const ytId = match[5] || extractYouTubeId(ytUrl)
+        const ytId = (match[5] || extractYouTubeId(ytUrl)) ?? undefined
         segments.push({ type: 'yt', content: ytUrl, ytId })
       }
       lastIndex = match.index + match[0].length
