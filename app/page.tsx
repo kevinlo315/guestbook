@@ -62,6 +62,9 @@ export default function Guestbook() {
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editContent, setEditContent] = useState('')
+  const [uploadProgress, setUploadProgress] = useState(false)
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
 
   const [darkMode, setDarkMode] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(false)
@@ -121,20 +124,21 @@ export default function Guestbook() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!content.trim()) return
+    if (!content.trim() && !uploadPreview) return
 
     setSubmitting(true)
     try {
       const res = await fetch('/api/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ author, content }),
+        body: JSON.stringify({ author, content, imageUrl: uploadPreview }),
       })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || 'Failed to post')
       }
       setContent('')
+      setUploadPreview(null)
       fetchPosts(1)
       setPage(1)
     } catch (err: any) {
@@ -280,6 +284,120 @@ export default function Guestbook() {
     })
   }
 
+  // Convert text URLs to clickable links + YouTube embeds
+  const renderContent = (text: string, withImage?: string | null) => {
+    const parts: React.ReactNode[] = []
+    let lastIndex = 0
+
+    // URL regex
+    const urlRegex = /(https?:\/\/[^\s<]+[^<]*)/g
+    // YouTube regex
+    const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?/g
+
+    // Combined regex for both
+    const combinedRegex = /(?:(https?:\/\/[^\s<]+[^<]*)|(?:(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?))/g
+
+    // Split by URLs and hashtags
+    const segments: { type: 'text' | 'url' | 'yt' | 'hashtag', content: string, ytId?: string }[] = []
+    const fullRegex = /(https?:\/\/[^\s<]+[^<]*)|(#([\w\u4e00-\u9fa5]+))|((?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11}))/g
+
+    let match
+    while ((match = fullRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        segments.push({ type: 'text', content: text.slice(lastIndex, match.index) })
+      }
+      if (match[1]) {
+        // Standard URL
+        segments.push({ type: 'url', content: match[1] })
+      } else if (match[3]) {
+        // Hashtag
+        segments.push({ type: 'hashtag', content: match[3] })
+      } else if (match[4]) {
+        // YouTube
+        const ytUrl = match[4].startsWith('http') ? match[4] : 'https://' + match[4]
+        const ytId = match[5] || extractYouTubeId(ytUrl)
+        segments.push({ type: 'yt', content: ytUrl, ytId })
+      }
+      lastIndex = match.index + match[0].length
+    }
+    if (lastIndex < text.length) {
+      segments.push({ type: 'text', content: text.slice(lastIndex) })
+    }
+
+    return (
+      <>
+        {segments.map((seg, i) => {
+          if (seg.type === 'url') {
+            return <a key={i} href={seg.content} target="_blank" rel="noopener noreferrer" className="content-link">{seg.content}</a>
+          } else if (seg.type === 'yt') {
+            const ytId = seg.ytId || extractYouTubeId(seg.content)
+            if (!ytId) return <span key={i}>{seg.content}</span>
+            return (
+              <div key={i} className="youtube-embed">
+                <iframe
+                  src={`https://www.youtube.com/embed/${ytId}`}
+                  title="YouTube video"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )
+          } else if (seg.type === 'hashtag') {
+            return (
+              <span
+                key={i}
+                className="hashtag"
+                onClick={() => setHashtagFilter(seg.content)}
+                style={{ cursor: 'pointer', color: '#45B7D1' }}
+              >
+                #{seg.content}
+              </span>
+            )
+          }
+          return <span key={i}>{seg.content}</span>
+        })}
+      </>
+    )
+  }
+
+  const extractYouTubeId = (url: string): string | null => {
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+    return match ? match[1] : null
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadProgress(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || '上傳失敗')
+      }
+
+      const data = await res.json()
+      setUploadPreview(data.url)
+    } catch (err: any) {
+      alert(err.message || '上傳失敗')
+    } finally {
+      setUploadProgress(false)
+    }
+  }
+
+  const clearUploadPreview = () => {
+    setUploadPreview(null)
+  }
+
   const isReactedByMe = (reactions: Reaction[] | undefined, emoji: string) => {
     return reactions?.some(r => r.emoji === emoji && r.users.includes(USER_ID)) ?? false
   }
@@ -320,21 +438,16 @@ export default function Guestbook() {
         ) : (
           <>
             {post.image_url && (
-              <img src={post.image_url} alt="" className="post-image" />
+              <img
+                src={post.image_url}
+                alt=""
+                className="post-image"
+                onClick={() => setPreviewImage(post.image_url)}
+                style={{ cursor: 'pointer' }}
+              />
             )}
             <p className="post-content">
-              {post.content.split(/(#[\w\u4e00-\u9fa5]+)/g).map((part, i) =>
-                part.startsWith('#') ? (
-                  <span
-                    key={i}
-                    className="hashtag"
-                    onClick={() => setHashtagFilter(part.slice(1))}
-                    style={{ cursor: 'pointer', color: '#45B7D1' }}
-                  >
-                    {part}
-                  </span>
-                ) : part
-              )}
+              {renderContent(post.content)}
             </p>
 
             {/* Reactions */}
@@ -528,6 +641,27 @@ export default function Guestbook() {
         footer { margin-top: 1rem; padding: 1rem; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); }
         footer pre { background: var(--bg); padding: 0.75rem; border-radius: 6px; overflow-x: auto; font-size: 0.75rem; color: var(--text); }
         footer code { background: var(--bg); padding: 0.1rem 0.3rem; border-radius: 4px; color: var(--text); }
+
+        /* Upload area */
+        .upload-area { display: flex; flex-direction: column; gap: 0.5rem; }
+        .upload-area input[type="file"] { font-size: 0.85rem; }
+        .upload-progress { font-size: 0.85rem; color: var(--secondary); }
+        .upload-preview { position: relative; display: inline-block; margin-top: 0.5rem; }
+        .upload-preview img { max-width: 200px; max-height: 150px; border-radius: 8px; border: 1px solid var(--border); }
+        .remove-preview { position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; border: none; background: #dc3545; color: #fff; font-size: 0.8rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        /* Content links */
+        .content-link { color: #45B7D1; text-decoration: underline; word-break: break-all; }
+        .content-link:hover { color: var(--accent); }
+
+        /* YouTube embed */
+        .youtube-embed { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; margin: 0.75rem 0; border-radius: 8px; }
+        .youtube-embed iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 8px; }
+
+        /* Image preview modal */
+        .image-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; cursor: pointer; }
+        .image-modal img { max-width: 90%; max-height: 90%; border-radius: 8px; object-fit: contain; }
+        .image-modal-close { position: absolute; top: 1rem; right: 1rem; background: rgba(255,255,255,0.2); border: none; color: #fff; font-size: 1.5rem; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
       `}</style>
 
       <header>
@@ -637,10 +771,29 @@ export default function Guestbook() {
               id="content"
               value={content}
               onChange={e => setContent(e.target.value)}
-              placeholder="說點什麼吧... 可用 #標籤 來新增分類"
+              placeholder="說點什麼吧... 可用 #標籤 來新增分類，支援 YouTube 連結自動嵌入"
               rows={3}
               required
             />
+          </div>
+          <div className="form-group">
+            <label htmlFor="image">📷 上傳圖片（選擇性）：</label>
+            <div className="upload-area">
+              <input
+                type="file"
+                id="image"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleImageUpload}
+                disabled={uploadProgress}
+              />
+              {uploadProgress && <span className="upload-progress">上傳中...</span>}
+              {uploadPreview && (
+                <div className="upload-preview">
+                  <img src={uploadPreview} alt="預覽" />
+                  <button type="button" onClick={clearUploadPreview} className="remove-preview">✕</button>
+                </div>
+              )}
+            </div>
           </div>
           <button type="submit" disabled={submitting}>
             {submitting ? '發送中...' : '送出留言'}
@@ -648,9 +801,15 @@ export default function Guestbook() {
         </form>
       </section>
 
+      {previewImage && (
+        <div className="image-modal" onClick={() => setPreviewImage(null)}>
+          <button className="image-modal-close" onClick={() => setPreviewImage(null)}>✕</button>
+          <img src={previewImage} alt="" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
+
       <footer>
-        <p>🤖 <strong>機器人 API：</strong></p>
-        <pre>{`# ① 發一般留言（不回覆任何人）
+        <p>🤖 <strong>機器人 API：</strong></p>  <pre>{`# ① 發一般留言（不回覆任何人）
 curl -X POST https://kevinclawboard.zeabur.app/api/comments \\
   -H "Content-Type: application/json" \\
   -d '{"author": "小龍蝦", "content": "這是我的留言內容"}'
