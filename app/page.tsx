@@ -1,5 +1,7 @@
 'use client'
 
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 interface Reaction {
@@ -285,79 +287,59 @@ export default function Guestbook() {
   }
 
   // Convert text URLs to clickable links + YouTube embeds
+  // Render content with Markdown support
   const renderContent = (text: string, withImage?: string | null) => {
-    const parts: React.ReactNode[] = []
-    let lastIndex = 0
-
-    // URL regex
-    const urlRegex = /(https?:\/\/[^\s<]+[^<]*)/g
-    // YouTube regex
-    const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?/g
-
-    // Combined regex for both
-    const combinedRegex = /(?:(https?:\/\/[^\s<]+[^<]*)|(?:(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^\s<]*)?))/g
-
-    // Split by URLs and hashtags
-    const segments: { type: 'text' | 'url' | 'yt' | 'hashtag', content: string, ytId?: string }[] = []
-    const fullRegex = /(https?:\/\/[^\s<]+[^<]*)|(#([\w\u4e00-\u9fa5]+))|((?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11}))/g
-
-    let match
-    while ((match = fullRegex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        segments.push({ type: 'text', content: text.slice(lastIndex, match.index) })
-      }
-      if (match[1]) {
-        // Standard URL
-        segments.push({ type: 'url', content: match[1] })
-      } else if (match[3]) {
-        // Hashtag
-        segments.push({ type: 'hashtag', content: match[3] })
-      } else if (match[4]) {
-        // YouTube
-        const ytUrl = match[4].startsWith('http') ? match[4] : 'https://' + match[4]
-        const ytId = (match[5] || extractYouTubeId(ytUrl)) ?? undefined
-        segments.push({ type: 'yt', content: ytUrl, ytId })
-      }
-      lastIndex = match.index + match[0].length
-    }
-    if (lastIndex < text.length) {
-      segments.push({ type: 'text', content: text.slice(lastIndex) })
-    }
-
     return (
-      <>
-        {segments.map((seg, i) => {
-          if (seg.type === 'url') {
-            return <a key={i} href={seg.content} target="_blank" rel="noopener noreferrer" className="content-link">{seg.content}</a>
-          } else if (seg.type === 'yt') {
-            const ytId = seg.ytId || extractYouTubeId(seg.content)
-            if (!ytId) return <span key={i}>{seg.content}</span>
-            return (
-              <div key={i} className="youtube-embed">
-                <iframe
-                  src={`https://www.youtube.com/embed/${ytId}`}
-                  title="YouTube video"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            )
-          } else if (seg.type === 'hashtag') {
-            return (
-              <span
-                key={i}
-                className="hashtag"
-                onClick={() => setHashtagFilter(seg.content)}
-                style={{ cursor: 'pointer', color: '#45B7D1' }}
-              >
-                #{seg.content}
-              </span>
-            )
-          }
-          return <span key={i}>{seg.content}</span>
-        })}
-      </>
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ href, children }) => {
+            if (!href) return <>{children}</>
+            // Hashtag
+            if (href.startsWith('#')) {
+              const tag = href.slice(1)
+              return (
+                <span
+                  className="hashtag"
+                  onClick={() => setHashtagFilter(tag)}
+                  style={{ cursor: 'pointer', color: '#45B7D1' }}
+                >
+                  #{children}
+                </span>
+              )
+            }
+            // YouTube URL
+            const ytId = extractYouTubeId(href)
+            if (ytId) {
+              return (
+                <span
+                  className="yt-link"
+                  onClick={() => window.open(`https://www.youtube.com/watch?v=${ytId}`, '_blank')}
+                  style={{ cursor: 'pointer', color: '#FF0000' }}
+                >
+                  ▶ {children}
+                </span>
+              )
+            }
+            // Regular URL
+            return <a href={href} target="_blank" rel="noopener noreferrer" className="content-link">{children}</a>
+          },
+          p: ({ children }) => <>{children}</>,
+          ul: ({ children }) => <ul style={{ margin: '0.5em 0', paddingLeft: '1.5em' }}>{children}</ul>,
+          ol: ({ children }) => <ol style={{ margin: '0.5em 0', paddingLeft: '1.5em' }}>{children}</ol>,
+          li: ({ children }) => <li style={{ margin: '0.2em 0' }}>{children}</li>,
+          blockquote: ({ children }) => <blockquote style={{ borderLeft: '3px solid #45B7D1', paddingLeft: '0.8em', margin: '0.5em 0', color: '#666' }}>{children}</blockquote>,
+          code: ({ children }) => <code style={{ background: '#f0f0f0', padding: '0.1em 0.4em', borderRadius: '3px', fontSize: '0.9em' }}>{children}</code>,
+          pre: ({ children }) => <pre style={{ background: '#f0f0f0', padding: '0.8em', borderRadius: '5px', overflow: 'auto', fontSize: '0.9em' }}>{children}</pre>,
+          h1: ({ children }) => <h1 style={{ fontSize: '1.3em', margin: '0.5em 0' }}>{children}</h1>,
+          h2: ({ children }) => <h2 style={{ fontSize: '1.1em', margin: '0.5em 0' }}>{children}</h2>,
+          h3: ({ children }) => <h3 style={{ fontSize: '1em', margin: '0.5em 0' }}>{children}</h3>,
+          strong: ({ children }) => <strong style={{ fontWeight: 'bold' }}>{children}</strong>,
+          em: ({ children }) => <em style={{ fontStyle: 'italic' }}>{children}</em>,
+        }}
+      >
+        {text}
+      </Markdown>
     )
   }
 
